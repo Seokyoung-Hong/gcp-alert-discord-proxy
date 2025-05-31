@@ -14,26 +14,20 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Decode service account key
-        run: |
-          echo "${{ secrets.GCP_SA_KEY }}" | base64 -d > "${{ github.workspace }}/gcp-key.json"
-
-      - name: Set up Google Cloud SDK
-        uses: google-github-actions/setup-gcloud@v2
+      - name: Authenticate with GCP
+        uses: google-github-actions/auth@v1
         with:
-          version: '>= 416.0.0'
-          project_id: ${{ secrets.GCP_PROJECT_ID }}
-          service_account_key: ${{ github.workspace }}/gcp-key.json
-          export_default_credentials: true
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
 
       - name: Deploy Cloud Function
-        run: |
-          gcloud functions deploy gcp_alert \
-            --runtime python311 \
-            --trigger-http \
-            --region us-west1 \
-            --entry-point gcp_alert_handler \
-            --allow-unauthenticated \
-            --set-env-vars \
-              DISCORD_CRITICAL_WEBHOOK=${{ secrets.DISCORD_CRITICAL_WEBHOOK }},\
-              DISCORD_WARNING_WEBHOOK=${{ secrets.DISCORD_WARNING_WEBHOOK }}
+        uses: google-github-actions/deploy-cloud-functions@v2.1.0
+        with:
+          name: gcp_alert
+          entry_point: gcp_alert_handler
+          runtime: python311
+          region: us-west1
+          env_vars: |
+            DISCORD_CRITICAL_WEBHOOK=${{ secrets.DISCORD_CRITICAL_WEBHOOK }},
+            DISCORD_WARNING_WEBHOOK=${{ secrets.DISCORD_WARNING_WEBHOOK }}
+          source_dir: .
+          allow_unauthenticated: true
