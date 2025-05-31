@@ -1,0 +1,39 @@
+name: Deploy GCP Function
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Decode service account key
+        run: |
+          echo "${{ secrets.GCP_SA_KEY }}" | base64 -d > "${{ github.workspace }}/gcp-key.json"
+
+      - name: Set up Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          version: '>= 416.0.0'
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          service_account_key: ${{ github.workspace }}/gcp-key.json
+          export_default_credentials: true
+
+      - name: Deploy Cloud Function
+        run: |
+          gcloud functions deploy gcp_alert \
+            --runtime python311 \
+            --trigger-http \
+            --region us-west1 \
+            --entry-point gcp_alert_handler \
+            --allow-unauthenticated \
+            --set-env-vars \
+              DISCORD_CRITICAL_WEBHOOK=${{ secrets.DISCORD_CRITICAL_WEBHOOK }},\
+              DISCORD_WARNING_WEBHOOK=${{ secrets.DISCORD_WARNING_WEBHOOK }}
